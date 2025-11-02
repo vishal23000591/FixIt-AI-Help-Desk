@@ -1,0 +1,583 @@
+{
+  "name": "Autonomous IT Helpdesk Agent with Self-Healing Capabilities - MySQL",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "it-support-request",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "f6208d31-941a-4743-b087-9266ac034e15",
+      "name": "Incoming IT Support Request",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -2112,
+        -32
+      ],
+      "webhookId": "cc01a386-ee77-4194-8b58-6730e7f1ea2f"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "mysqlHost",
+              "value": "<__PLACEHOLDER_VALUE__MySQL host address__>",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "mysqlDatabase",
+              "value": "<__PLACEHOLDER_VALUE__MySQL database name__>",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "ticketsTable",
+              "value": "it_tickets",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "knowledgeBaseTable",
+              "value": "knowledge_base",
+              "type": "string"
+            },
+            {
+              "id": "id-5",
+              "name": "escalationSlackChannel",
+              "value": "<__PLACEHOLDER_VALUE__Slack channel ID for escalations__>",
+              "type": "string"
+            },
+            {
+              "id": "id-6",
+              "name": "smtpHost",
+              "value": "<__PLACEHOLDER_VALUE__SMTP server host__>",
+              "type": "string"
+            },
+            {
+              "id": "id-7",
+              "name": "smtpFromEmail",
+              "value": "<__PLACEHOLDER_VALUE__From email address__>",
+              "type": "string"
+            },
+            {
+              "id": "4e6d9d4e-6018-4b6b-980d-cc86fcc2e432",
+              "name": "=ticket_id",
+              "value": "={{$now.toFormat(\"yyyyMMddHHmmss\")}}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "aaf75126-fbc6-43c1-83c1-ca5c0ddf7dc1",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1888,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are FixIt AI, an autonomous IT helpdesk agent. Your role is to: \n1. Analyze IT support requests and determine the best course of action \n2. Use available tools to resolve common issues autonomously (password resets, VPN configs, system diagnostics) 3. Search the knowledge base for similar past issues and solutions \n4. For complex issues you cannot resolve, create tickets in Jira/ServiceNow and escalate to IT team via Slack 5. Always provide clear, professional responses to users \nCurrent ticket: \nUser: {{ $node[\"Incoming IT Support Request\"].json.body.user_email }} \nIssue: {{$node[\"Incoming IT Support Request\"].json.body.issue_description}} \nCategory: {{$node[\"Incoming IT Support Request\"].json.body.category}} \nPriority: {{$node[\"Incoming IT Support Request\"].json.body.priority}} \nInstructions: \n- If you resolve the issue, respond with **exactly**: status: resolved \n- If you need to escalate, respond with **exactly**: status: escalated \n- Do not include any additional text, explanation, or punctuation. Only respond with one of the above two outputs.",
+        "options": {}
+      },
+      "id": "7c42d2cb-dc45-4f3d-b7cc-0d369b4f98b6",
+      "name": "IT Helpdesk AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -384,
+        -32
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "=={{$node[\"Workflow Configuration\"].json[\"smtpFromEmail\"]}}",
+        "toEmail": "={{ $node[\"Incoming IT Support Request\"].json.body.user_email }}\n",
+        "subject": "=IT Support Ticket Resolved - #{{ $node[\"Workflow Configuration\"].json.ticket_id }}\n",
+        "html": "=<h2>Your IT Support Request Has Been Resolved</h2>\n<p>Ticket ID: {{$node[\"Workflow Configuration\"].json.ticket_id}}</p>\n<p><strong>Issue:</strong> {{$node[\"Incoming IT Support Request\"].json.body.issue_description}}</p>\n<p><strong> {{$node[\"Route by Resolution Status\"].json.output}}</p>\n\n",
+        "options": {}
+      },
+      "id": "7dc7bd24-c22e-4958-a8a5-ecab0b98f1bb",
+      "name": "Send Resolution Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1504,
+        -128
+      ],
+      "webhookId": "3ee6768e-7fae-4fae-af4c-ac65cbc741da",
+      "credentials": {
+        "smtp": {
+          "id": "aPwxdizDJYTEBod2",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "=C09Q86QK9FW",
+          "mode": ""
+        },
+        "text": "=:warning: *IT Ticket Escalated*\nTicket ID: {{$node[\"Workflow Configuration\"].json.ticket_id}}\nUser: {{ $node[\"Incoming IT Support Request\"].json.body.user_email }}\nIssue: {{$node[\"Incoming IT Support Request\"].json.body.issue_description}}\nEscalation Reason: {{ $node[\"Store Ticket in Database\"].json.escalation_reason }}",
+        "otherOptions": {}
+      },
+      "id": "d1057b3f-7bf2-4837-8c17-f9cdb652d045",
+      "name": "Notify IT Team - Escalation",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        1504,
+        64
+      ],
+      "webhookId": "f37a2823-3e24-4e92-adc5-ebb333188705",
+      "credentials": {
+        "slackApi": {
+          "id": "SZeGsfBrULiHyKWJ",
+          "name": "Slack account 6"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -528,
+        176
+      ],
+      "id": "531f5e24-a246-47e0-ae98-431cb7bf3e9a",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "eD3kekzCxHSHeA2f",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "table": {
+          "__rl": true,
+          "value": "it_tickets",
+          "mode": "list",
+          "cachedResultName": "it_tickets"
+        },
+        "dataMode": "defineBelow",
+        "valuesToSend": {
+          "values": [
+            {
+              "column": "ticket_id",
+              "value": "={{ $json.ticket_id }}\n"
+            },
+            {
+              "column": "user_email",
+              "value": "={{ $json.ticket_id }}"
+            },
+            {
+              "column": "issue_description",
+              "value": "={{$json.body.issue_description }}"
+            },
+            {
+              "column": "category",
+              "value": "={{$json.body.category}}"
+            },
+            {
+              "column": "status",
+              "value": "={{ $json.body.status }}"
+            },
+            {
+              "column": "priority",
+              "value": "={{ $json.body.priority }}"
+            },
+            {
+              "column": "created_at",
+              "value": "={{ new Date().toISOString().slice(0,19).replace('T',' ') }}\n\n"
+            },
+            {
+              "column": "resolved_at",
+              "value": "={{ new Date().toISOString().slice(0,19).replace('T',' ') }}"
+            },
+            {
+              "column": "resolution_details",
+              "value": "NULL"
+            },
+            {
+              "column": "escalated_at",
+              "value": "={{ new Date().toISOString().slice(0,19).replace('T',' ') }}"
+            },
+            {
+              "column": "escalation_reason",
+              "value": "={{ $json.body.escalation_reason }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        -1680,
+        -32
+      ],
+      "id": "06237dc6-691e-44d6-98ff-bd2c48eafef2",
+      "name": "Store Ticket in Database",
+      "credentials": {
+        "mySql": {
+          "id": "J2Gqw85LsimB7puX",
+          "name": "MySQL account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"ticket_id\": \"{{ $node['Workflow Configuration'].json.ticket_id }}\",\n  \"status\": \"{{$if($node['Update Ticket - Resolved'] && $node['Update Ticket - Resolved'].isExecuted, 'resolved', 'escalated')}}\",\n  \"message\": \"Your IT support request has been processed. You will receive an email shortly.\"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        2352,
+        -32
+      ],
+      "id": "36ad88aa-10e7-4dab-9ded-7dd8cead67eb",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": {
+          "__rl": true,
+          "value": "it_tickets",
+          "mode": "list",
+          "cachedResultName": "it_tickets"
+        },
+        "dataMode": "defineBelow",
+        "columnToMatchOn": "ticket_id",
+        "valueToMatchOn": "={{ $node[\"Workflow Configuration\"].json.ticket_id }}",
+        "valuesToSend": {
+          "values": [
+            {
+              "column": "status",
+              "value": "=\"resolved\""
+            },
+            {
+              "column": "resolved_at",
+              "value": "=={{ $now.toISO() }}"
+            },
+            {
+              "column": "resolution_details",
+              "value": "=={{ $json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1056,
+        -128
+      ],
+      "id": "1daec07b-321f-4396-97cb-9cb19f597562",
+      "name": "Update Ticket - Resolved",
+      "credentials": {
+        "mySql": {
+          "id": "J2Gqw85LsimB7puX",
+          "name": "MySQL account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "table": {
+          "__rl": true,
+          "value": "it_tickets",
+          "mode": "list",
+          "cachedResultName": "it_tickets"
+        },
+        "dataMode": "defineBelow",
+        "columnToMatchOn": "ticket_id",
+        "valueToMatchOn": "={{ $node[\"Workflow Configuration\"].json.ticket_id }}",
+        "valuesToSend": {
+          "values": [
+            {
+              "column": "status",
+              "value": "\"escalated\""
+            },
+            {
+              "column": "escalated_at",
+              "value": "={{ new Date().toISOString().slice(0,19).replace('T',' ') }}"
+            },
+            {
+              "column": "escalation_reason",
+              "value": "\"Manual Escalation Required\""
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.mySql",
+      "typeVersion": 2.5,
+      "position": [
+        1280,
+        64
+      ],
+      "id": "302d79f6-cbbb-4916-a377-1be0a003fa2e",
+      "name": "Update rows in a table",
+      "credentials": {
+        "mySql": {
+          "id": "J2Gqw85LsimB7puX",
+          "name": "MySQL account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.output}}",
+                    "rightValue": "status: resolved",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "id": "ab0eb6a1-c0a9-4069-b460-9931acfe1b8c"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Resolved"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c7fcd556-3240-4e52-8c08-326638af65f0",
+                    "leftValue": "={{$json.output}}",
+                    "rightValue": "status: escalated",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Escalated"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.3,
+      "position": [
+        160,
+        -32
+      ],
+      "id": "052f09af-9f28-4f25-b108-866188b1a80c",
+      "name": "Route by Resolution Status"
+    },
+    {
+      "parameters": {
+        "fromEmail": "vishalsuresh1975@gmail.com",
+        "toEmail": "={{ $node[\"Incoming IT Support Request\"].json.body.user_email }}\n",
+        "subject": "=IT Support Ticket Escalated - #{{ $node[\"Workflow Configuration\"].json.ticket_id }}",
+        "html": "=<h2>Your IT Support Request Has Been Escalated</h2>\n<p><strong>User:</strong> {{ $node[\"Incoming IT Support Request\"].json.body.user_email }}</p>\n<p><strong>Ticket ID:</strong> {{ $node[\"Workflow Configuration\"].json.ticket_id }}</p>\n<p><strong>Issue:</strong> {{ $node[\"Incoming IT Support Request\"].json.body.issue_description }}</p>\n<p><strong>Category:</strong> {{ $node[\"Incoming IT Support Request\"].json.body.category }}</p>\n<p><strong>Priority:</strong> {{ $node[\"Incoming IT Support Request\"].json.body.priority }}</p>\n<p><strong>Escalation Reason:</strong> Manual Escalation Required</p>\n<p>The IT team will get back to you shortly.</p>\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1712,
+        64
+      ],
+      "id": "c90b155f-03b3-4913-8935-3ceb129563dc",
+      "name": "Send Escalation Mail",
+      "webhookId": "3f0e107e-4c01-4ab6-b205-a0926917c939",
+      "credentials": {
+        "smtp": {
+          "id": "aPwxdizDJYTEBod2",
+          "name": "SMTP account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Incoming IT Support Request": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Configuration": {
+      "main": [
+        [
+          {
+            "node": "Store Ticket in Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IT Helpdesk AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Route by Resolution Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Resolution Email": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify IT Team - Escalation": {
+      "main": [
+        [
+          {
+            "node": "Send Escalation Mail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "IT Helpdesk AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Ticket in Database": {
+      "main": [
+        [
+          {
+            "node": "IT Helpdesk AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Ticket - Resolved": {
+      "main": [
+        [
+          {
+            "node": "Send Resolution Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update rows in a table": {
+      "main": [
+        [
+          {
+            "node": "Notify IT Team - Escalation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Resolution Status": {
+      "main": [
+        [
+          {
+            "node": "Update Ticket - Resolved",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Escalation Mail": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "fa74ade8-fcdc-4f78-81d3-61515a8e5a5b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "2399b682b37c773ba8be45b9d1d3f4b70f96b096c8321e8a24c5dfa1637b3128"
+  },
+  "id": "ZgOHkAIeZkza9amE",
+  "tags": []
+}
